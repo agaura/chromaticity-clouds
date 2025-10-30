@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Color Cloud</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.166.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+  <main class="column">
+    <header class="intro">
+      <h1>Chromaticity Diagram</h1>
+      <p>Exploring gamuts of different spaces via their range of chromaticities.</p>
+    </header>
+    <section class="controls" aria-label="Shader controls">
+      <div class="slider-row">
+        <label for="pointSizeSlider">Point Size</label>
+        <input type="range" id="pointSizeSlider" min="1" max="10" step="0.1" value="1" />
+        <span id="pointSizeValue">1.0</span>
+      </div>
+      <div class="cloud-toggles" role="group" aria-label="Cloud visibility">
+        <label><input type="checkbox" id="toggleSRGB" checked /> sRGB</label>
+        <label><input type="checkbox" id="toggleP3" checked /> P3</label>
+      </div>
+    </section>
+    <section class="chart-shell">
+      <div id="chartContainer" class="chart-container">
+        <svg id="chartSvg" aria-hidden="true"></svg>
+        <canvas id="cloudCanvas" aria-label="Color point cloud"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('chartContainer');
+      const svg = d3.select('#chartSvg');
+      const canvas = document.getElementById('cloudCanvas');
+      const margin = { top: 36, right: 36, bottom: 52, left: 52 };
+
+      const plotGroup = svg.append('g').attr('class', 'plot-area');
+      const gridGroup = plotGroup.append('g').attr('class', 'grid-lines');
+      const xAxisGroup = svg.append('g').attr('class', 'axis axis-x');
+      const yAxisGroup = svg.append('g').attr('class', 'axis axis-y');
+      const xLabel = svg.append('text').attr('class', 'axis-label axis-label-x').text('x');
+      const yLabel = svg.append('text').attr('class', 'axis-label axis-label-y').text('y');
+
+      const renderChart = () => {
+        const size = container.clientWidth;
+        const width = Math.max(1, size - margin.left - margin.right);
+        const height = Math.max(1, size - margin.top - margin.bottom);
+
+        svg.attr('width', size).attr('height', size);
+        plotGroup.attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().domain([0, 0.9]).range([0, width]);
+        const y = d3.scaleLinear().domain([0, 0.9]).range([height, 0]);
+
+        const xTicks = x.ticks(9);
+        const yTicks = y.ticks(9);
+
+        const verticalLines = gridGroup.selectAll('line.grid-vertical').data(xTicks);
+        verticalLines.join(
+          enter => enter.append('line').attr('class', 'grid grid-vertical')
+        )
+          .attr('x1', d => x(d))
+          .attr('x2', d => x(d))
+          .attr('y1', 0)
+          .attr('y2', height);
+
+        const horizontalLines = gridGroup.selectAll('line.grid-horizontal').data(yTicks);
+        horizontalLines.join(
+          enter => enter.append('line').attr('class', 'grid grid-horizontal')
+        )
+          .attr('x1', 0)
+          .attr('x2', width)
+          .attr('y1', d => y(d))
+          .attr('y2', d => y(d));
+
+        xAxisGroup
+          .attr('transform', `translate(${margin.left}, ${margin.top + height})`)
+          .call(d3.axisBottom(x).tickSizeOuter(0).tickFormat(d3.format('.1f')));
+
+        yAxisGroup
+          .attr('transform', `translate(${margin.left}, ${margin.top})`)
+          .call(d3.axisLeft(y).tickSizeOuter(0).tickFormat(d3.format('.1f')));
+
+        xLabel
+          .attr('x', margin.left + width / 2)
+          .attr('y', margin.top + height + 40);
+
+        yLabel
+          .attr('x', margin.left - 36)
+          .attr('y', margin.top + height / 2)
+          .attr('transform', `rotate(-90, ${margin.left - 36}, ${margin.top + height / 2})`);
+
+        Object.assign(canvas.style, {
+          width: `${width}px`,
+          height: `${height}px`,
+          left: `${margin.left}px`,
+          top: `${margin.top}px`,
+        });
+
+        const prevWidth = Number(canvas.dataset.prevWidth || 0);
+        const prevHeight = Number(canvas.dataset.prevHeight || 0);
+        if (prevWidth !== width || prevHeight !== height) {
+          canvas.dataset.prevWidth = width;
+          canvas.dataset.prevHeight = height;
+          window.dispatchEvent(new Event('resize'));
+        }
+      };
+
+      renderChart();
+      window.addEventListener('resize', renderChart);
+    });
+  </script>
+  <script type="module" src="point-cloud.js"></script>
+</body>
+</html>

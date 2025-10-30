@@ -1,0 +1,150 @@
+:root {
+  color-scheme: dark;
+  --bg-primary: #040507;
+  --bg-secondary: #0a0d16;
+  --panel: rgba(8, 12, 20, 0.72);
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: rgba(4, 6, 12, 0.6);
+  --fg-primary: #f1f4ff;
+  --fg-muted: #8c92af;
+  --accent: #7f8dff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 2rem) clamp(1.2rem, 4vw, 3rem);
+  padding-top: calc(env(safe-area-inset-top, 0px) + clamp(1rem, 4vw, 2rem));
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+}
+
+main.column {
+  width: min(640px, 100%);
+  display: grid;
+  gap: clamp(1.4rem, 3vw, 2.2rem);
+  padding: clamp(1.6rem, 4vw, 2.6rem);
+  background: var(--panel);
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px) saturate(120%);
+  box-shadow: none;
+}
+
+.intro {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.intro h1 {
+  font-size: clamp(1.35rem, 3.4vw, 1.62rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.intro p {
+  font-size: clamp(0.88rem, 2.6vw, 0.98rem);
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+
+.controls {
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.slider-row label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.slider-row input[type="range"] {
+  width: 100%;
+}
+.slider-row span {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-primary);
+}
+
+.cloud-toggles {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.cloud-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.chart-shell {
+  position: relative;
+  width: 100%;
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+
+.chart-container svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.chart-container canvas {
+  position: absolute;
+  display: block;
+  cursor: default;
+  pointer-events: all;
+}
+
+.axis path,
+.axis line {
+  stroke: rgba(255, 255, 255, 0.25);
+}
+
+.axis text {
+  fill: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+}
+
+.grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.axis-label {
+  fill: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
