@@ -8,6 +8,7 @@
   --fg-primary: #f1f4ff;
   --fg-muted: #8c92af;
   --accent: #7f8dff;
+  --panel-size-reference: 720px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: 0.02em;
 }
@@ -22,7 +23,7 @@ body {
   margin: 0;
   min-height: 100vh;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: clamp(1rem, 4vw, 2rem) clamp(1.2rem, 4vw, 3rem);
   padding-top: calc(env(safe-area-inset-top, 0px) + clamp(1rem, 4vw, 2rem));
@@ -31,10 +32,10 @@ body {
 }
 
 main.column {
-  width: min(640px, 100%);
-  display: grid;
-  gap: clamp(1.4rem, 3vw, 2.2rem);
-  padding: clamp(1.6rem, 4vw, 2.6rem);
+  width: auto;
+  max-width: 1280px;
+  display: inline-block;
+  padding: clamp(1.8rem, 4vw, 3rem);
   background: var(--panel);
   border-radius: 22px;
   border: 1px solid var(--border);
@@ -101,15 +102,60 @@ main.column {
   font-weight: 600;
 }
 
-.chart-shell {
-  position: relative;
+.dashboard {
+  display: inline-grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(448px, 1.4fr);
+  gap: clamp(1.8rem, 3vw, 2.6rem);
+  align-items: start;
+  width: auto;
+  max-width: 1000px;
+}
+
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-left {
+  display: grid;
+  gap: clamp(1.4rem, 3vw, 2rem);
+  align-content: start;
+}
+
+.panel {
+  padding: 0;
+  display: grid;
+  place-items: center;
+  min-height: 0;
   width: 100%;
+}
+
+.panel-space {
+  position: relative;
+}
+
+#spaceCanvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+#spaceCanvas:active {
+  cursor: grabbing;
+}
+
+.panel-chromaticity {
+  position: relative;
 }
 
 .chart-container {
   position: relative;
   width: 100%;
-  max-width: 520px;
+  max-width: none;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
 }
@@ -123,8 +169,9 @@ main.column {
 .chart-container canvas {
   position: absolute;
   display: block;
-  cursor: default;
+  cursor: pointer;
   pointer-events: all;
+  touch-action: none;
 }
 
 .axis path,

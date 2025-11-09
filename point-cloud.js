@@ -1,29 +1,20 @@
 import * as THREE from 'three';
-const canvas = document.getElementById('cloudCanvas');
-if (!canvas) {
-  throw new Error('cloudCanvas element not found');
+
+const chromaticityCanvas = document.getElementById('chromaticityCanvas');
+if (!chromaticityCanvas) {
+  throw new Error('chromaticityCanvas element not found');
 }
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  alpha: true,
-  antialias: true,
-});
-
-renderer.toneMapping = THREE.NoToneMapping;
-renderer.setClearAlpha(0);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-if ('outputColorSpace' in renderer && THREE.DisplayP3ColorSpace) {
-  renderer.outputColorSpace = THREE.DisplayP3ColorSpace;
-}
-if (renderer.domElement.style) {
-  renderer.domElement.style.colorSpace = 'display-p3';
+const spaceCanvas = document.getElementById('spaceCanvas');
+if (!spaceCanvas) {
+  throw new Error('spaceCanvas element not found');
 }
 
 const pointSizeSlider = document.getElementById('pointSizeSlider');
 const pointSizeValueLabel = document.getElementById('pointSizeValue');
 const toggleP3 = document.getElementById('toggleP3');
 const toggleSRGB = document.getElementById('toggleSRGB');
+
 const initialPointSizeValue = (() => {
   if (!pointSizeSlider) {
     return 1;
@@ -32,12 +23,56 @@ const initialPointSizeValue = (() => {
   return Number.isFinite(parsed) ? parsed : 1;
 })();
 
-const scene = new THREE.Scene();
-scene.background = null;
+const viewers = [];
+const clock = new THREE.Clock();
+const CHROMATICITY_MAX = 0.9;
+const chromaticityMatch = new THREE.Vector2(0.0, 0.0);
+const chromaticityMatchHover = chromaticityMatch.clone();
 
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20);
-camera.position.set(0, 0, 6);
-camera.lookAt(0, 0, 0);
+function setupChromaticityPointerTracking(canvas) {
+  if (!canvas) {
+    return;
+  }
+
+  const updateHoverFromEvent = (event) => {
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    const localX = (event.clientX - rect.left) / rect.width;
+    const localY = (event.clientY - rect.top) / rect.height;
+    const clampedX = THREE.MathUtils.clamp(localX, 0, 1);
+    const clampedY = THREE.MathUtils.clamp(localY, 0, 1);
+    const chartX = clampedX * CHROMATICITY_MAX;
+    const chartY = (1.0 - clampedY) * CHROMATICITY_MAX;
+    chromaticityMatchHover.set(chartX, chartY);
+  };
+
+  const handlePointerDown = (event) => {
+    updateHoverFromEvent(event);
+    chromaticityMatch.copy(chromaticityMatchHover);
+  };
+
+  const handlePointerLeave = () => {
+    chromaticityMatchHover.copy(chromaticityMatch);
+  };
+
+  canvas.addEventListener('pointermove', updateHoverFromEvent, { passive: false });
+  canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+  canvas.addEventListener('pointerleave', handlePointerLeave);
+  canvas.addEventListener('pointercancel', handlePointerLeave);
+}
+
+setupChromaticityPointerTracking(chromaticityCanvas);
+
+function getPanelReferenceSize() {
+  const rootStyles = getComputedStyle(document.documentElement);
+  const parsed = parseFloat(rootStyles.getPropertyValue('--panel-size-reference'));
+  return Number.isFinite(parsed) ? parsed : 640;
+}
 
 const lookupTableData = `0.213134,0.006387,0.997775
     0.208150,0.005981,0.997792
@@ -1131,10 +1166,10 @@ vec3 positionInDisplaySpace(vec3 coord, float scale) {
   vec3 rotated = vec3(
     dot(centered, axisX),
     dot(centered, axisY) * diagScale,
-    dot(centered, axisZ)
+    - dot(centered, axisZ)
   );
 
-  return scale * rotated;
+  return 1.45 * scale * rotated;
 }
 
 vec3 positionChromaticity(vec3 coord, float scale) {
@@ -1168,23 +1203,36 @@ vec3 pushIntoDisplayableXYZCloud(
   return mix(value, vec3(distribution.y), distribution.z);
 }
 `;
-const spectrumMaterial = createPointCloudMaterial(spectrumTextures, initialPointSizeValue);
-const p3Material = createP3PointCloudMaterial(initialPointSizeValue);
-const srgbMaterial = createSRGBPointCloudMaterial(initialPointSizeValue);
-
-geometry.setDrawRange(0, maxDrawRange);
-
 const syncPointSizeValue = (value) => {
   if (pointSizeValueLabel) {
     pointSizeValueLabel.textContent = value.toFixed(1);
   }
 };
 
+const resolveCheckbox = (input, fallback) => {
+  if (!input) {
+    return fallback;
+  }
+  return input.checked;
+};
+
+const chromaticityViewer = createCloudViewer({
+  canvas: chromaticityCanvas,
+  placementMode: 'chromaticity',
+});
+
+const spaceViewer = createCloudViewer({
+  canvas: spaceCanvas,
+  placementMode: 'display',
+});
+
+viewers.push(chromaticityViewer, spaceViewer);
+
 const applyPointSize = (value) => {
   syncPointSizeValue(value);
-  spectrumMaterial.uniforms.uPointSize.value = value;
-  p3Material.uniforms.uPointSize.value = value;
-  srgbMaterial.uniforms.uPointSize.value = value;
+  for (const viewer of viewers) {
+    viewer.setPointSize(value);
+  }
 };
 
 applyPointSize(initialPointSizeValue);
@@ -1199,37 +1247,14 @@ if (pointSizeSlider) {
   });
 }
 
-const spectrumPoints = new THREE.Points(geometry, spectrumMaterial);
-const p3Points = new THREE.Points(geometry, p3Material);
-const srgbPoints = new THREE.Points(geometry, srgbMaterial);
-
-const resolveCheckbox = (input, fallback) => {
-  if (!input) {
-    return fallback;
-  }
-  return input.checked;
-};
-
 const updateCloudVisibility = () => {
   const p3Enabled = resolveCheckbox(toggleP3, true);
   const srgbEnabled = resolveCheckbox(toggleSRGB, true);
 
-  p3Points.visible = p3Enabled;
-  srgbPoints.visible = srgbEnabled;
-
-  spectrumMaterial.uniforms.uP3Enabled.value = p3Enabled;
-  spectrumMaterial.uniforms.uSRGBEnabled.value = srgbEnabled;
-  spectrumMaterial.uniforms.uShowCube.value = p3Enabled || srgbEnabled;
+  for (const viewer of viewers) {
+    viewer.setVisibility(p3Enabled, srgbEnabled);
+  }
 };
-const cloudGroup = new THREE.Group();
-
-cloudGroup.add(spectrumPoints);
-cloudGroup.add(p3Points);
-cloudGroup.add(srgbPoints);
-cloudGroup.scale.setScalar(1.);
-cloudGroup.rotation.set(0., 0., 0.0);
-
-scene.add(cloudGroup);
 
 if (toggleP3) {
   toggleP3.addEventListener('change', updateCloudVisibility);
@@ -1240,83 +1265,284 @@ if (toggleSRGB) {
 
 updateCloudVisibility();
 
-
-const clock = new THREE.Clock();
-let lastCanvasWidth = 0;
-let lastCanvasHeight = 0;
-
-function resize() {
-  const width = Math.max(1, Math.round(canvas.clientWidth));
-  const height = Math.max(1, Math.round(canvas.clientHeight));
-
-  if (width === lastCanvasWidth && height === lastCanvasHeight) {
-    return;
-  }
-
-  lastCanvasWidth = width;
-  lastCanvasHeight = height;
-
-  renderer.setSize(width, height, false);
-  camera.left = 0.0;
-  camera.right = 0.9;
-  camera.top = 0.9;
-  camera.bottom = 0.0;
-  camera.updateProjectionMatrix();
-
-  const areaRatio = Math.pow((width * height) / (432.0 * 432.0), 0.5);
-  const drawCount = Math.max(1, Math.floor(maxDrawRange * Math.min(1.0, areaRatio)));
-  geometry.setDrawRange(0, drawCount);
-}
-
-resize();
-window.addEventListener('resize', resize);
-if (typeof ResizeObserver !== 'undefined') {
-  const observer = new ResizeObserver(() => resize());
-  observer.observe(canvas);
-}
-
 function tick() {
   const elapsedMs = clock.getElapsedTime() * 1000.0;
-  spectrumMaterial.uniforms.uTime.value = elapsedMs;
-  p3Material.uniforms.uTime.value = elapsedMs;
-  srgbMaterial.uniforms.uTime.value = elapsedMs;
-
-  renderer.render(scene, camera);
+  for (const viewer of viewers) {
+    viewer.updateTime(elapsedMs);
+    viewer.render();
+  }
   requestAnimationFrame(tick);
 }
 
 tick();
 
+function createCloudViewer({ canvas, placementMode }) {
+  if (!canvas) {
+    throw new Error('Canvas element is required to create a viewer.');
+  }
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setClearAlpha(0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  if ('outputColorSpace' in renderer && THREE.DisplayP3ColorSpace) {
+    renderer.outputColorSpace = THREE.DisplayP3ColorSpace;
+  }
+  if (renderer.domElement.style) {
+    renderer.domElement.style.colorSpace = 'display-p3';
+  }
+
+  const scene = new THREE.Scene();
+  scene.background = null;
+
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20);
+  camera.position.set(0, 0, 6);
+  camera.lookAt(0, 0, 0);
+
+  const geometry = buildPointCloudGeometry();
+  const maxDrawRange = geometry.getAttribute('position').count;
+
+  const generalMaterial = createPointCloudMaterial(
+    spectrumTextures,
+    initialPointSizeValue,
+    placementMode,
+    chromaticityMatch,
+    chromaticityMatchHover
+  );
+  const p3Material = createP3PointCloudMaterial(
+    initialPointSizeValue,
+    placementMode,
+    chromaticityMatch,
+    chromaticityMatchHover
+  );
+  const srgbMaterial = createSRGBPointCloudMaterial(
+    initialPointSizeValue,
+    placementMode,
+    chromaticityMatch,
+    chromaticityMatchHover
+  );
+
+  geometry.setDrawRange(0, maxDrawRange);
+
+  const generalPoints = new THREE.Points(geometry, generalMaterial);
+  const p3Points = new THREE.Points(geometry, p3Material);
+  const srgbPoints = new THREE.Points(geometry, srgbMaterial);
+
+  const group = new THREE.Group();
+  group.add(generalPoints);
+  group.add(p3Points);
+  group.add(srgbPoints);
+  group.scale.setScalar(1.0);
+  group.rotation.set(0, 0, 0);
+
+  scene.add(group);
+
+  const rotationState =
+    placementMode === 'display'
+      ? {
+          isDragging: false,
+          pointerId: null,
+          lastX: 0,
+          lastY: 0,
+          velocity: new THREE.Vector2(),
+        }
+      : null;
+
+  if (rotationState) {
+    const ROTATION_ACCEL = 0.01;
+    const FRICTION = 0.966;
+    const MAX_TILT = Math.PI * 0.5;
+
+    const handlePointerDown = (event) => {
+      event.preventDefault();
+      rotationState.isDragging = true;
+      rotationState.pointerId = event.pointerId;
+      rotationState.lastX = event.clientX;
+      rotationState.lastY = event.clientY;
+      rotationState.velocity.set(0, 0);
+      canvas.setPointerCapture(event.pointerId);
+    };
+
+    const handlePointerMove = (event) => {
+      if (!rotationState.isDragging || event.pointerId !== rotationState.pointerId) {
+        return;
+      }
+      event.preventDefault();
+
+      const dx = event.clientX - rotationState.lastX;
+      const dy = event.clientY - rotationState.lastY;
+      rotationState.lastX = event.clientX;
+      rotationState.lastY = event.clientY;
+
+      const deltaYaw = dx * ROTATION_ACCEL;
+      const deltaPitch = dy * ROTATION_ACCEL;
+
+      group.rotation.y += deltaYaw;
+      const nextPitch = THREE.MathUtils.clamp(group.rotation.x + deltaPitch, -MAX_TILT, MAX_TILT);
+      group.rotation.x = nextPitch;
+
+      rotationState.velocity.set(deltaPitch, deltaYaw);
+    };
+
+    const handlePointerUp = (event) => {
+      if (event.pointerId !== rotationState.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      rotationState.isDragging = false;
+      rotationState.pointerId = null;
+      canvas.releasePointerCapture(event.pointerId);
+
+      if (rotationState.velocity.lengthSq() < 1e-7) {
+        rotationState.velocity.set(0, 0);
+      }
+    };
+
+    canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+    canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
+    canvas.addEventListener('pointerup', handlePointerUp, { passive: false });
+    canvas.addEventListener('pointerleave', handlePointerUp, { passive: false });
+    canvas.addEventListener('pointercancel', handlePointerUp, { passive: false });
+
+    rotationState.applyMomentum = () => {
+      if (rotationState.isDragging) {
+        return;
+      }
+      if (rotationState.velocity.lengthSq() < 1e-7) {
+        rotationState.velocity.set(0, 0);
+        return;
+      }
+
+      group.rotation.y += rotationState.velocity.y;
+      const nextPitch = THREE.MathUtils.clamp(
+        group.rotation.x + rotationState.velocity.x,
+        -MAX_TILT,
+        MAX_TILT
+      );
+      group.rotation.x = nextPitch;
+
+      rotationState.velocity.multiplyScalar(FRICTION);
+      if (rotationState.velocity.lengthSq() < 1e-7) {
+        rotationState.velocity.set(0, 0);
+      }
+    };
+  }
+
+  const BASE_SIZE = getPanelReferenceSize();
+  let lastCanvasWidth = 0;
+  let lastCanvasHeight = 0;
+
+  const updateCameraBounds = (width, height) => {
+    if (placementMode === 'chromaticity') {
+      camera.left = 0.0;
+      camera.right = 0.9;
+      camera.top = 0.9;
+      camera.bottom = 0.0;
+    } else {
+      const aspect = width / height;
+      const view = 1.1;
+      camera.top = view;
+      camera.bottom = -view;
+      camera.left = -view * aspect;
+      camera.right = view * aspect;
+    }
+    camera.updateProjectionMatrix();
+  };
+
+  const resize = () => {
+    const width = Math.max(1, Math.round(canvas.clientWidth));
+    const height = Math.max(1, Math.round(canvas.clientHeight));
+
+    if (width === lastCanvasWidth && height === lastCanvasHeight) {
+      return;
+    }
+
+    lastCanvasWidth = width;
+    lastCanvasHeight = height;
+
+    renderer.setSize(width, height, false);
+    updateCameraBounds(width, height);
+
+    const areaRatio = Math.pow((width * height) / (BASE_SIZE * BASE_SIZE), 0.5);
+    const drawCount = Math.max(1, Math.floor(maxDrawRange * Math.min(1.0, areaRatio)));
+    geometry.setDrawRange(0, drawCount);
+  };
+
+  resize();
+  window.addEventListener('resize', resize);
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => resize());
+    observer.observe(canvas);
+  }
+
+  return {
+    setPointSize(value) {
+      generalMaterial.uniforms.uPointSize.value = value;
+      p3Material.uniforms.uPointSize.value = value;
+      srgbMaterial.uniforms.uPointSize.value = value;
+    },
+    setVisibility(p3Enabled, srgbEnabled) {
+      p3Points.visible = p3Enabled;
+      srgbPoints.visible = srgbEnabled;
+      generalMaterial.uniforms.uP3Enabled.value = p3Enabled;
+      generalMaterial.uniforms.uSRGBEnabled.value = srgbEnabled;
+      generalMaterial.uniforms.uShowCube.value = p3Enabled || srgbEnabled;
+    },
+    updateTime(elapsedMs) {
+      generalMaterial.uniforms.uTime.value = elapsedMs;
+      p3Material.uniforms.uTime.value = elapsedMs;
+      srgbMaterial.uniforms.uTime.value = elapsedMs;
+    },
+    render() {
+      if (rotationState?.applyMomentum) {
+        rotationState.applyMomentum();
+      }
+      renderer.render(scene, camera);
+    },
+    resize,
+  };
+}
+
 function buildPointCloudGeometry() {
   const steps = 40;
   const total = steps * steps * steps;
-  const positions = new Float32Array(total * 3);
-  const colors = new Float32Array(total * 3);
-
+  const triples = [];
   const margin = 1 / (steps * 2);
   const scale = 1 - 2 * margin;
 
-  let ptr = 0;
   for (let i = 0; i < steps; i += 1) {
     const r = margin + scale * ((i + 0.5) / steps);
     for (let j = 0; j < steps; j += 1) {
       const g = margin + scale * ((j + 0.5) / steps);
       for (let k = 0; k < steps; k += 1) {
         const b = margin + scale * ((k + 0.5) / steps);
-
-        positions[ptr] = r;
-        colors[ptr] = r;
-        ptr += 1;
-
-        positions[ptr] = g;
-        colors[ptr] = g;
-        ptr += 1;
-
-        positions[ptr] = b;
-        colors[ptr] = b;
-        ptr += 1;
+        triples.push([r, g, b]);
       }
     }
+  }
+
+  for (let i = triples.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1)); // important for geometry.setDrawRange to remove random points from cloud
+    const temp = triples[i];
+    triples[i] = triples[j];
+    triples[j] = temp;
+  }
+
+  const positions = new Float32Array(total * 3);
+  const colors = new Float32Array(total * 3);
+  let ptr = 0;
+  for (const [r, g, b] of triples) {
+    positions[ptr] = r;
+    colors[ptr] = r;
+    ptr += 1;
+
+    positions[ptr] = g;
+    colors[ptr] = g;
+    ptr += 1;
+
+    positions[ptr] = b;
+    colors[ptr] = b;
+    ptr += 1;
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -1326,11 +1552,19 @@ function buildPointCloudGeometry() {
   return geometry;
 }
 
-function createPointCloudMaterial(spectrumTextures, initialPointSize) {
+function createPointCloudMaterial(
+  spectrumTextures,
+  initialPointSize,
+  placementMode,
+  chromaUniform,
+  chromaHoverUniform
+) {
+  const placementCall = placementMode === 'chromaticity' ? 'positionChromaticity' : 'positionInDisplaySpace';
 
   const vertexShader = /* glsl */ `
     precision highp float;
     #define M_PI 3.1415926535897932384626433832795
+    #define WHITEPOINT_SCALE 0.916
 
     uniform float uTime;
     uniform sampler2D uSpectrumLookupX;
@@ -1338,6 +1572,8 @@ function createPointCloudMaterial(spectrumTextures, initialPointSize) {
     uniform sampler2D uSpectrumLookupZ;
     uniform float uSpectrumWidth;
     uniform float uPointSize;
+    uniform vec2 uChromaticityMatch;
+    uniform vec2 uChromaticityMatchHover;
 
     varying vec3 vXYZColor;
 
@@ -1354,12 +1590,22 @@ function createPointCloudMaterial(spectrumTextures, initialPointSize) {
       );
       vXYZColor = xyz;
 
-      //vec3 placed = positionInDisplaySpace(xyz, 1.);
-      vec3 placed = positionChromaticity(xyz, 1.0);
+      vec3 placed = ${placementCall}(xyz, 1.0);
       if (any(isnan(placed))) {
         placed = vec3(0.0);
       }
-      gl_PointSize = uPointSize;
+      float chromaSum = max(xyz.x + xyz.y + xyz.z, 1e-5);
+      vec2 chromaticity = vec2(xyz.x, xyz.y) / chromaSum;
+      float proximityClicked = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
+        2.0
+      );
+      float proximityHover = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatchHover)),
+        2.0
+      );
+      float proximity = max(proximityClicked, proximityHover);
+      gl_PointSize = uPointSize + proximity;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(placed, 1.0);
     }
   `;
@@ -1438,6 +1684,8 @@ const material = new THREE.ShaderMaterial({
       uP3Enabled: { value: true },
       uSRGBEnabled: { value: true },
       uPointSize: { value: initialPointSize },
+      uChromaticityMatch: { value: chromaUniform },
+      uChromaticityMatchHover: { value: chromaHoverUniform },
     },
     transparent: true,
     depthTest: true,
@@ -1450,13 +1698,21 @@ const material = new THREE.ShaderMaterial({
   return material;
 }
 
-function createP3PointCloudMaterial(initialPointSize) {
+function createP3PointCloudMaterial(initialPointSize, placementMode, chromaUniform, chromaHoverUniform) {
+  const placementSnippet =
+    placementMode === 'chromaticity'
+      ? 'vec3 placed = positionChromaticity(distribution, 1.0);'
+      : 'vec3 placed = positionInDisplaySpace(WHITEPOINT_SCALE * distribution, 1.0);';
+
   const vertexShader = /* glsl */ `
     precision highp float;
     #define M_PI 3.1415926535897932384626433832795
+    #define WHITEPOINT_SCALE 0.916
 
     uniform float uTime;
     uniform float uPointSize;
+    uniform vec2 uChromaticityMatch;
+    uniform vec2 uChromaticityMatchHover;
     varying vec3 vXYZColor;
 
     ${GLSL_CLOUD_UTILS}
@@ -1471,11 +1727,22 @@ function createP3PointCloudMaterial(initialPointSize) {
       vec3 distribution = P3_TO_XYZ * cubicCloudDistribute(position, uTime);
       vXYZColor = distribution;
 
-      vec3 placed = positionChromaticity(distribution, 1.0);
+      ${placementSnippet}
       if (any(isnan(placed))) {
         placed = vec3(0.0);
       }
-      gl_PointSize = uPointSize;
+      float chromaSum = max(distribution.x + distribution.y + distribution.z, 1e-5);
+      vec2 chromaticity = vec2(distribution.x, distribution.y) / chromaSum;
+      float proximityClicked = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
+        2.0
+      );
+      float proximityHover = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatchHover)),
+        2.0
+      );
+      float proximity = max(proximityClicked, proximityHover);
+      gl_PointSize = uPointSize + proximity;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(placed, 1.0);
     }
   `;
@@ -1513,6 +1780,8 @@ function createP3PointCloudMaterial(initialPointSize) {
     uniforms: {
       uTime: { value: 0 },
       uPointSize: { value: initialPointSize },
+      uChromaticityMatch: { value: chromaUniform },
+      uChromaticityMatchHover: { value: chromaHoverUniform },
     },
     transparent: true,
     depthTest: true,
@@ -1525,13 +1794,21 @@ function createP3PointCloudMaterial(initialPointSize) {
   return material;
 }
 
-function createSRGBPointCloudMaterial(initialPointSize) {
+function createSRGBPointCloudMaterial(initialPointSize, placementMode, chromaUniform, chromaHoverUniform) {
+  const placementSnippet =
+    placementMode === 'chromaticity'
+      ? 'vec3 placed = positionChromaticity(distribution, 1.0);'
+      : 'vec3 placed = positionInDisplaySpace(WHITEPOINT_SCALE * distribution, 1.0);';
+
   const vertexShader = /* glsl */ `
     precision highp float;
     #define M_PI 3.1415926535897932384626433832795
+    #define WHITEPOINT_SCALE 0.916
 
     uniform float uTime;
     uniform float uPointSize;
+    uniform vec2 uChromaticityMatch;
+    uniform vec2 uChromaticityMatchHover;
     varying vec3 vXYZColor;
 
     ${GLSL_CLOUD_UTILS}
@@ -1546,11 +1823,22 @@ function createSRGBPointCloudMaterial(initialPointSize) {
       vec3 distribution = SRGB_TO_XYZ * cubicCloudDistribute(position, uTime);
       vXYZColor = distribution;
 
-      vec3 placed = positionChromaticity(distribution, 1.0);
+      ${placementSnippet}
       if (any(isnan(placed))) {
         placed = vec3(0.0);
       }
-      gl_PointSize = uPointSize;
+      float chromaSum = max(distribution.x + distribution.y + distribution.z, 1e-5);
+      vec2 chromaticity = vec2(distribution.x, distribution.y) / chromaSum;
+      float proximityClicked = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
+        2.0
+      );
+      float proximityHover = 10. * pow(
+        1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatchHover)),
+        2.0
+      );
+      float proximity = max(proximityClicked, proximityHover);
+      gl_PointSize = uPointSize + proximity;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(placed, 1.0);
     }
   `;
@@ -1588,6 +1876,8 @@ function createSRGBPointCloudMaterial(initialPointSize) {
     uniforms: {
       uTime: { value: 0 },
       uPointSize: { value: initialPointSize },
+      uChromaticityMatch: { value: chromaUniform },
+      uChromaticityMatchHover: { value: chromaHoverUniform },
     },
     transparent: true,
     depthTest: true,

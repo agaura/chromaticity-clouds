@@ -16,25 +16,30 @@
 </head>
 <body>
   <main class="column">
-    <header class="intro">
-      <h1>Chromaticity Diagram</h1>
-      <p>Exploring gamuts of different spaces via their range of chromaticities.</p>
-    </header>
-    <section class="controls" aria-label="Shader controls">
-      <div class="slider-row">
-        <label for="pointSizeSlider">Point Size</label>
-        <input type="range" id="pointSizeSlider" min="1" max="10" step="0.1" value="1" />
-        <span id="pointSizeValue">1.0</span>
+    <section class="dashboard">
+      <div class="dashboard-left">
+        <header class="intro">
+          <h1>Chromaticity Clouds</h1>
+          <p>Exploring gamuts of different spaces via their range of chromaticities.</p>
+        </header>
+        <section class="controls" aria-label="Shader controls">
+          <div class="slider-row">
+            <label for="pointSizeSlider">Point Size</label>
+            <input type="range" id="pointSizeSlider" min="1" max="10" step="0.1" value="1" />
+            <span id="pointSizeValue">1.0</span>
+          </div>
+          <div class="cloud-toggles" role="group" aria-label="Cloud visibility">
+            <label><input type="checkbox" id="toggleP3" checked /> P3</label>
+            <label><input type="checkbox" id="toggleSRGB" checked /> sRGB</label>
+          </div>
+        </section>
+        <div id="chartContainer" class="chart-container">
+          <svg id="chartSvg" aria-hidden="true"></svg>
+          <canvas id="chromaticityCanvas" aria-label="Chromaticity point cloud"></canvas>
+        </div>
       </div>
-      <div class="cloud-toggles" role="group" aria-label="Cloud visibility">
-        <label><input type="checkbox" id="toggleSRGB" checked /> sRGB</label>
-        <label><input type="checkbox" id="toggleP3" checked /> P3</label>
-      </div>
-    </section>
-    <section class="chart-shell">
-      <div id="chartContainer" class="chart-container">
-        <svg id="chartSvg" aria-hidden="true"></svg>
-        <canvas id="cloudCanvas" aria-label="Color point cloud"></canvas>
+      <div class="panel panel-space">
+        <canvas id="spaceCanvas" aria-label="Gamut point cloud"></canvas>
       </div>
     </section>
   </main>
@@ -43,7 +48,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('chartContainer');
       const svg = d3.select('#chartSvg');
-      const canvas = document.getElementById('cloudCanvas');
+      const canvas = document.getElementById('chromaticityCanvas');
       const margin = { top: 36, right: 36, bottom: 52, left: 52 };
 
       const plotGroup = svg.append('g').attr('class', 'plot-area');
