@@ -28,7 +28,7 @@
       <div class="dashboard-left">
         <header class="intro">
           <h1>Chromaticity Clouds</h1>
-          <p>Exploring gamuts of different spaces via their range of chromaticities.</p>
+          <p>Exploring gamuts of the tricolor spaces of sRGB and P3. Included is the standard chromaticity diagram, where chromaticity is color without its brightness, and a 3D diagram showing the sRGB and P3 cubes in XYZ space, along with a larger desaturated gamut representing the range of all possible tricolor spaces.</p>
         </header>
         <section class="controls" aria-label="Shader controls">
           <div class="slider-row">
@@ -37,6 +37,7 @@
             <span id="pointSizeValue">1.0</span>
           </div>
           <div class="cloud-toggles" role="group" aria-label="Cloud visibility">
+            <label><input type="checkbox" id="toggleMaxGamut" checked /> Max Gamut</label>
             <label><input type="checkbox" id="toggleP3" checked /> P3</label>
             <label><input type="checkbox" id="toggleSRGB" checked /> sRGB</label>
           </div>

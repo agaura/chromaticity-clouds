@@ -12,6 +12,7 @@ if (!spaceCanvas) {
 
 const pointSizeSlider = document.getElementById('pointSizeSlider');
 const pointSizeValueLabel = document.getElementById('pointSizeValue');
+const toggleMaxGamut = document.getElementById('toggleMaxGamut');
 const toggleP3 = document.getElementById('toggleP3');
 const toggleSRGB = document.getElementById('toggleSRGB');
 
@@ -1043,8 +1044,6 @@ const lookupTable = new Float32Array(
     .filter(Boolean)
     .map(Number)
 );
-const geometry = buildPointCloudGeometry();
-let maxDrawRange = geometry.getAttribute('position').count;
 const spectrumTextures = createComplementSpectrumTextures();
 
 const GLSL_CLOUD_UTILS = /* glsl */ `
@@ -1248,14 +1247,18 @@ if (pointSizeSlider) {
 }
 
 const updateCloudVisibility = () => {
+  const maxEnabled = resolveCheckbox(toggleMaxGamut, true);
   const p3Enabled = resolveCheckbox(toggleP3, true);
   const srgbEnabled = resolveCheckbox(toggleSRGB, true);
 
   for (const viewer of viewers) {
-    viewer.setVisibility(p3Enabled, srgbEnabled);
+    viewer.setVisibility(maxEnabled, p3Enabled, srgbEnabled);
   }
 };
 
+if (toggleMaxGamut) {
+  toggleMaxGamut.addEventListener('change', updateCloudVisibility);
+}
 if (toggleP3) {
   toggleP3.addEventListener('change', updateCloudVisibility);
 }
@@ -1481,12 +1484,13 @@ function createCloudViewer({ canvas, placementMode }) {
       p3Material.uniforms.uPointSize.value = value;
       srgbMaterial.uniforms.uPointSize.value = value;
     },
-    setVisibility(p3Enabled, srgbEnabled) {
+    setVisibility(maxEnabled, p3Enabled, srgbEnabled) {
+      generalPoints.visible = maxEnabled;
       p3Points.visible = p3Enabled;
       srgbPoints.visible = srgbEnabled;
       generalMaterial.uniforms.uP3Enabled.value = p3Enabled;
       generalMaterial.uniforms.uSRGBEnabled.value = srgbEnabled;
-      generalMaterial.uniforms.uShowCube.value = p3Enabled || srgbEnabled;
+      generalMaterial.uniforms.uShowCube.value = maxEnabled && (p3Enabled || srgbEnabled);
     },
     updateTime(elapsedMs) {
       generalMaterial.uniforms.uTime.value = elapsedMs;
@@ -1595,7 +1599,7 @@ function createPointCloudMaterial(
         placed = vec3(0.0);
       }
       float chromaSum = max(xyz.x + xyz.y + xyz.z, 1e-5);
-      vec2 chromaticity = vec2(xyz.x, xyz.y) / chromaSum;
+      vec2 chromaticity = xyz.xy / chromaSum;
       float proximityClicked = 10. * pow(
         1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
         2.0
@@ -1732,7 +1736,7 @@ function createP3PointCloudMaterial(initialPointSize, placementMode, chromaUnifo
         placed = vec3(0.0);
       }
       float chromaSum = max(distribution.x + distribution.y + distribution.z, 1e-5);
-      vec2 chromaticity = vec2(distribution.x, distribution.y) / chromaSum;
+      vec2 chromaticity = distribution.xy / chromaSum;
       float proximityClicked = 10. * pow(
         1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
         2.0
@@ -1828,7 +1832,7 @@ function createSRGBPointCloudMaterial(initialPointSize, placementMode, chromaUni
         placed = vec3(0.0);
       }
       float chromaSum = max(distribution.x + distribution.y + distribution.z, 1e-5);
-      vec2 chromaticity = vec2(distribution.x, distribution.y) / chromaSum;
+      vec2 chromaticity = distribution.xy / chromaSum;
       float proximityClicked = 10. * pow(
         1.0 - smoothstep(0.0, 0.05, distance(chromaticity, uChromaticityMatch)),
         2.0
