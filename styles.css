@@ -135,6 +135,38 @@ main.column {
   position: relative;
 }
 
+
+.spectrum-strip {
+  width: 100%;
+  margin-top: clamp(0.55rem, 1.5vw, 0.85rem);
+  display: grid;
+  gap: 0;
+}
+
+.spectrum-strip canvas {
+  width: 100%;
+  aspect-ratio: 8 / 1;
+  min-height: 32px;
+  max-height: 80px;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: col-resize;
+}
+
+.spectrum-strip-axis {
+  width: 100%;
+  min-height: 0;
+}
+
+.spectrum-strip-axis svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
 #spaceCanvas {
   width: 100%;
   height: auto;
@@ -174,6 +206,20 @@ main.column {
   touch-action: none;
 }
 
+.chromaticity-label {
+  position: absolute;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-primary);
+  pointer-events: none;
+  transform: translate(6px, -18px);
+  white-space: nowrap;
+}
+
+.chromaticity-label--hover {
+  color: var(--accent);
+}
+
 .axis path,
 .axis line {
   stroke: rgba(255, 255, 255, 0.25);
@@ -182,6 +228,24 @@ main.column {
 .axis text {
   fill: rgba(255, 255, 255, 0.8);
   font-size: 0.8rem;
+}
+
+.strip-axis-marker--hover text {
+  fill: var(--accent);
+  font-weight: 500;
+}
+
+.strip-axis-marker--hover line {
+  stroke: var(--accent);
+}
+
+.strip-axis-marker--active text {
+  fill: #fff;
+  font-weight: 600;
+}
+
+.strip-axis-marker--active line {
+  stroke: #fff;
 }
 
 .grid {
