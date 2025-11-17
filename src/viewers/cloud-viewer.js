@@ -58,17 +58,26 @@ export async function createCloudViewer({
     chromaUniform: chromaticityMatch,
     chromaHoverUniform: chromaticityHover,
   });
+  const rec2020Material = createRec2020PointCloudMaterial({
+    shaders,
+    placementMode,
+    pointSize,
+    chromaUniform: chromaticityMatch,
+    chromaHoverUniform: chromaticityHover,
+  });
 
   geometry.setDrawRange(0, maxDrawRange);
 
   const generalPoints = new THREE.Points(geometry, generalMaterial);
   const p3Points = new THREE.Points(geometry, p3Material);
   const srgbPoints = new THREE.Points(geometry, srgbMaterial);
+  const rec2020Points = new THREE.Points(geometry, rec2020Material);
 
   const group = new THREE.Group();
   group.add(generalPoints);
   group.add(p3Points);
   group.add(srgbPoints);
+  group.add(rec2020Points);
   group.scale.setScalar(1.0);
   group.rotation.set(0, 0, 0);
   scene.add(group);
@@ -215,19 +224,26 @@ export async function createCloudViewer({
       generalMaterial.uniforms.uPointSize.value = value;
       p3Material.uniforms.uPointSize.value = value;
       srgbMaterial.uniforms.uPointSize.value = value;
+      rec2020Material.uniforms.uPointSize.value = value;
     },
-    setVisibility(maxEnabled, p3Enabled, srgbEnabled) {
+    setVisibility(maxEnabled, p3Enabled, srgbEnabled, rec2020Enabled) {
       generalPoints.visible = maxEnabled;
       p3Points.visible = p3Enabled;
       srgbPoints.visible = srgbEnabled;
+      rec2020Points.visible = rec2020Enabled;
       generalMaterial.uniforms.uP3Enabled.value = p3Enabled;
       generalMaterial.uniforms.uSRGBEnabled.value = srgbEnabled;
-      generalMaterial.uniforms.uShowCube.value = maxEnabled && (p3Enabled || srgbEnabled);
+      generalMaterial.uniforms.uShowCube.value =
+        maxEnabled && (p3Enabled || srgbEnabled || rec2020Enabled);
+      rec2020Material.uniforms.uP3Enabled.value = p3Enabled;
+      rec2020Material.uniforms.uSRGBEnabled.value = srgbEnabled;
+      rec2020Material.uniforms.uShowCube.value = rec2020Enabled && (p3Enabled || srgbEnabled);
     },
     updateTime(elapsedMs) {
       generalMaterial.uniforms.uTime.value = elapsedMs;
       p3Material.uniforms.uTime.value = elapsedMs;
       srgbMaterial.uniforms.uTime.value = elapsedMs;
+      rec2020Material.uniforms.uTime.value = elapsedMs;
     },
     render() {
       if (rotationState?.applyMomentum) {
@@ -248,6 +264,8 @@ async function loadViewerShaderSources() {
     p3Vertex: new URL('../shaders/clouds/p3.vert.glsl', base),
     srgbVertex: new URL('../shaders/clouds/srgb.vert.glsl', base),
     displayFragment: new URL('../shaders/clouds/display-color.frag.glsl', base),
+    rec2020Vertex: new URL('../shaders/clouds/rec2020.vert.glsl', base),
+    rec2020Fragment: new URL('../shaders/clouds/rec2020.frag.glsl', base),
   };
   const entries = Object.entries(paths);
   const sources = await Promise.all(entries.map(([, url]) => loadShaderSource(url)));
@@ -409,6 +427,43 @@ function createSRGBPointCloudMaterial({
     blending: THREE.NormalBlending,
     vertexShader,
     fragmentShader: shaders.displayFragment,
+  });
+  material.toneMapped = false;
+  return material;
+}
+
+function createRec2020PointCloudMaterial({
+  shaders,
+  placementMode,
+  pointSize,
+  chromaUniform,
+  chromaHoverUniform,
+}) {
+  const placementSnippet =
+    placementMode === 'chromaticity'
+      ? 'positionChromaticity(distribution, 1.0)'
+      : 'positionInDisplaySpace(WHITEPOINT_SCALE * distribution, 1.0)';
+
+  const vertexShader = applyShaderReplacements(shaders.rec2020Vertex, {
+    '{{CLOUD_UTILS}}': shaders.cloudUtils,
+    '{{PLACEMENT}}': placementSnippet,
+  });
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uPointSize: { value: pointSize },
+      uChromaticityMatch: { value: chromaUniform },
+      uChromaticityMatchHover: { value: chromaHoverUniform },
+      uShowCube: { value: true },
+      uP3Enabled: { value: true },
+      uSRGBEnabled: { value: true },
+    },
+    transparent: true,
+    depthTest: true,
+    blending: THREE.NormalBlending,
+    vertexShader,
+    fragmentShader: shaders.rec2020Fragment,
   });
   material.toneMapped = false;
   return material;

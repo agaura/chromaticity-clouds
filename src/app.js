@@ -20,6 +20,7 @@ export async function initApp() {
   const toggleMaxGamut = document.getElementById('toggleMaxGamut');
   const toggleP3 = document.getElementById('toggleP3');
   const toggleSRGB = document.getElementById('toggleSRGB');
+  const toggleRec2020 = document.getElementById('toggleRec2020');
   const d3Global = window.d3;
 
   const chromaticityElements = {
@@ -100,11 +101,14 @@ export async function initApp() {
     const maxEnabled = resolveCheckbox(toggleMaxGamut, true);
     const p3Enabled = resolveCheckbox(toggleP3, true);
     const srgbEnabled = resolveCheckbox(toggleSRGB, true);
-    viewers.forEach((viewer) => viewer.setVisibility(maxEnabled, p3Enabled, srgbEnabled));
+    const rec2020Enabled = resolveCheckbox(toggleRec2020, true);
+    viewers.forEach((viewer) =>
+      viewer.setVisibility(maxEnabled, p3Enabled, srgbEnabled, rec2020Enabled)
+    );
   };
 
   applyVisibility();
-  [toggleMaxGamut, toggleP3, toggleSRGB].forEach((input) => {
+  [toggleMaxGamut, toggleP3, toggleSRGB, toggleRec2020].forEach((input) => {
     if (input) {
       input.addEventListener('change', applyVisibility);
     }
