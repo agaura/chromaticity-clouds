@@ -3,6 +3,7 @@ import { loadShaderSource } from '../shaders/load-shaders.js';
 import { chromaticityState } from '../chromaticity/index.js';
 
 const shaderSourcesPromise = loadSpectrumStripShaders();
+const CIE_DATA_URL = new URL('../data/cie1931xyz2e.csv', import.meta.url);
 
 export async function initSpectrumStrip({
   canvas,
@@ -15,7 +16,7 @@ export async function initSpectrumStrip({
   }
 
   try {
-    const cieData = await loadCieTexture('cie1931xyz2e.csv');
+    const cieData = await loadCieTexture(CIE_DATA_URL);
     const renderer = await createSpectrumStripRenderer(canvas, cieData.texture);
     const axisState = createAxisState();
     const renderAxis = createSpectrumStripAxis({
@@ -70,8 +71,8 @@ export async function initSpectrumStrip({
 async function loadSpectrumStripShaders() {
   const base = import.meta.url;
   const [vertex, fragment] = await Promise.all([
-    loadShaderSource(new URL('../shaders/spectrum-strip.vert.glsl', base)),
-    loadShaderSource(new URL('../shaders/spectrum-strip.frag.glsl', base)),
+    loadShaderSource(new URL('../shaders/spectrum/spectrum-strip.vert.glsl', base)),
+    loadShaderSource(new URL('../shaders/spectrum/spectrum-strip.frag.glsl', base)),
   ]);
   return { vertex, fragment };
 }

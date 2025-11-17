@@ -242,12 +242,12 @@ export async function createCloudViewer({
 async function loadViewerShaderSources() {
   const base = import.meta.url;
   const paths = {
-    cloudUtils: new URL('../shaders/cloud-utils.glsl', base),
-    generalVertex: new URL('../shaders/general.vert.glsl', base),
-    generalFragment: new URL('../shaders/general.frag.glsl', base),
-    p3Vertex: new URL('../shaders/p3.vert.glsl', base),
-    srgbVertex: new URL('../shaders/srgb.vert.glsl', base),
-    displayFragment: new URL('../shaders/display-color.frag.glsl', base),
+    cloudUtils: new URL('../shaders/clouds/cloud-utils.glsl', base),
+    generalVertex: new URL('../shaders/clouds/general.vert.glsl', base),
+    generalFragment: new URL('../shaders/clouds/general.frag.glsl', base),
+    p3Vertex: new URL('../shaders/clouds/p3.vert.glsl', base),
+    srgbVertex: new URL('../shaders/clouds/srgb.vert.glsl', base),
+    displayFragment: new URL('../shaders/clouds/display-color.frag.glsl', base),
   };
   const entries = Object.entries(paths);
   const sources = await Promise.all(entries.map(([, url]) => loadShaderSource(url)));
