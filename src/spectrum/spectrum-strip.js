@@ -70,11 +70,12 @@ export async function initSpectrumStrip({
 
 async function loadSpectrumStripShaders() {
   const base = import.meta.url;
-  const [vertex, fragment] = await Promise.all([
+  const [vertex, fragment, colorUtils] = await Promise.all([
     loadShaderSource(new URL('../shaders/spectrum/spectrum-strip.vert.glsl', base)),
     loadShaderSource(new URL('../shaders/spectrum/spectrum-strip.frag.glsl', base)),
+    loadShaderSource(new URL('../shaders/color-utils.glsl', base)),
   ]);
-  return { vertex, fragment };
+  return { vertex, fragment, colorUtils };
 }
 
 function createMarkerState() {
@@ -122,13 +123,14 @@ async function createSpectrumStripRenderer(canvas, cieTexture) {
   camera.position.set(0, 0, 2);
   camera.lookAt(0, 0, 0);
 
+  const fragmentShader = shaders.fragment.replace('{{COLOR_UTILS}}', shaders.colorUtils);
   const geometry = new THREE.PlaneGeometry(2, 2);
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTexture: { value: cieTexture },
     },
     vertexShader: shaders.vertex,
-    fragmentShader: shaders.fragment,
+    fragmentShader,
   });
   material.toneMapped = false;
 

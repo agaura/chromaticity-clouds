@@ -74,36 +74,6 @@ vec3 cubicCloudDistribute(vec3 pos, float time) {
   return mix(pos.xyz, new_point, strength);
 }
 
-mat3 rotationX(float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-  return mat3(
-    1.0, 0.0, 0.0,
-    0.0, c, -s,
-    0.0, s,  c
-  );
-}
-
-mat3 rotationY(float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-  return mat3(
-     c, 0.0, s,
-     0.0, 1.0, 0.0,
-    -s, 0.0, c
-  );
-}
-
-mat3 rotationZ(float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-  return mat3(
-    c, -s, 0.0,
-    s,  c, 0.0,
-    0.0, 0.0, 1.0
-  );
-}
-
 vec3 positionInDisplaySpace(vec3 coord, float scale) {
   const vec3 axisY = normalize(vec3(1.0, 1.0, 1.0));
   const vec3 axisX = normalize(vec3(1.0, -1.0, 0.0));

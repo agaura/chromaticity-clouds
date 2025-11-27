@@ -259,6 +259,7 @@ async function loadViewerShaderSources() {
   const base = import.meta.url;
   const paths = {
     cloudUtils: new URL('../shaders/clouds/cloud-utils.glsl', base),
+    colorUtils: new URL('../shaders/color-utils.glsl', base),
     generalVertex: new URL('../shaders/clouds/general.vert.glsl', base),
     generalFragment: new URL('../shaders/clouds/general.frag.glsl', base),
     p3Vertex: new URL('../shaders/clouds/p3.vert.glsl', base),
@@ -340,6 +341,10 @@ function createPointCloudMaterial({
     '{{PLACEMENT}}': placementExpr,
   });
 
+  const generalFragmentShader = applyShaderReplacements(shaders.generalFragment, {
+    '{{COLOR_UTILS}}': shaders.colorUtils,
+  });
+
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -358,7 +363,7 @@ function createPointCloudMaterial({
     depthTest: true,
     blending: THREE.NormalBlending,
     vertexShader,
-    fragmentShader: shaders.generalFragment,
+    fragmentShader: generalFragmentShader,
   });
   material.toneMapped = false;
   return material;
@@ -381,6 +386,10 @@ function createP3PointCloudMaterial({
     '{{PLACEMENT}}': placementSnippet,
   });
 
+  const displayFragmentShader = applyShaderReplacements(shaders.displayFragment, {
+    '{{COLOR_UTILS}}': shaders.colorUtils,
+  });
+
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -392,7 +401,7 @@ function createP3PointCloudMaterial({
     depthTest: true,
     blending: THREE.NormalBlending,
     vertexShader,
-    fragmentShader: shaders.displayFragment,
+    fragmentShader: displayFragmentShader,
   });
   material.toneMapped = false;
   return material;
@@ -415,6 +424,10 @@ function createSRGBPointCloudMaterial({
     '{{PLACEMENT}}': placementSnippet,
   });
 
+  const srgbFragmentShader = applyShaderReplacements(shaders.displayFragment, {
+    '{{COLOR_UTILS}}': shaders.colorUtils,
+  });
+
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -426,7 +439,7 @@ function createSRGBPointCloudMaterial({
     depthTest: true,
     blending: THREE.NormalBlending,
     vertexShader,
-    fragmentShader: shaders.displayFragment,
+    fragmentShader: srgbFragmentShader,
   });
   material.toneMapped = false;
   return material;
@@ -449,6 +462,10 @@ function createRec2020PointCloudMaterial({
     '{{PLACEMENT}}': placementSnippet,
   });
 
+  const rec2020FragmentShader = applyShaderReplacements(shaders.rec2020Fragment, {
+    '{{COLOR_UTILS}}': shaders.colorUtils,
+  });
+
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -463,7 +480,7 @@ function createRec2020PointCloudMaterial({
     depthTest: true,
     blending: THREE.NormalBlending,
     vertexShader,
-    fragmentShader: shaders.rec2020Fragment,
+    fragmentShader: rec2020FragmentShader,
   });
   material.toneMapped = false;
   return material;
