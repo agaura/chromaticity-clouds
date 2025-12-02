@@ -152,6 +152,7 @@ main.column {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
+  touch-action: none;
 }
 
 .spectrum-strip-axis {
